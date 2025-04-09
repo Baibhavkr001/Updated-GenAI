@@ -1,60 +1,58 @@
-from flask import Flask, request, jsonify, render_template
-from flask_cors import CORS
+from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from flask_cors import CORS
 import os
 
+# Load data
+df = pd.read_csv("genai_assessments.csv")
+
+# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
-# Load assessment data
-df = pd.read_csv("assessments.csv")
-
-# Vectorize the descriptions for similarity
+# Vectorize descriptions
 vectorizer = TfidfVectorizer(stop_words='english')
 tfidf_matrix = vectorizer.fit_transform(df["Description"])
 
-# Health Check Endpoint
+# Health check endpoint
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "healthy"}), 200
 
-# Recommend Endpoint
+# Recommendation endpoint
 @app.route('/recommend', methods=['POST'])
 def recommend():
     content = request.get_json()
-    query = content.get("query", "")
+    query = content.get("query", "").strip()
 
-    if not query:
-        return jsonify({"error": "Missing query"}), 400
+    if query == "":
+        return jsonify({"error": "Query cannot be empty"}), 400
 
-    query_vec = vectorizer.transform([query])
-    cosine_similarities = cosine_similarity(query_vec, tfidf_matrix).flatten()
-    top_indices = cosine_similarities.argsort()[::-1][:10]
+    if query in df["Assessment_Name"].values:
+        idx = df[df["Assessment_Name"] == query].index[0]
+        cosine_similarities = cosine_similarity(tfidf_matrix[idx], tfidf_matrix).flatten()
+        similar_indices = cosine_similarities.argsort()[::-1][1:3]  # top 2 excluding self
 
-    recommendations = []
-    for idx in top_indices:
-        score = cosine_similarities[idx]
-        if score > 0:
-            assessment = df.iloc[idx]
-            recommendations.append({
-                "url": assessment["URL"],
-                "adaptive_support": assessment["Adaptive_Support"],
-                "description": assessment["Description"],
-                "duration": int(assessment["Duration"]),
-                "remote_support": assessment["Remote_Support"],
-                "test_type": eval(assessment["Test_Type"])
+        recommendations = df.iloc[similar_indices].to_dict(orient="records")
+
+        result = []
+        for rec in recommendations:
+            result.append({
+                "url": rec["URL"],
+                "adaptive_support": rec["Adaptive_Support"],
+                "description": rec["Description"],
+                "duration": int(rec["Duration"]),
+                "remote_support": rec["Remote_Support"],
+                "test_type": eval(rec["Test_Type"]) if isinstance(rec["Test_Type"], str) else rec["Test_Type"]
             })
 
-    return jsonify({"recommended_assessments": recommendations}), 200
+        return jsonify({"recommended_assessments": result}), 200
 
-# Frontend
-@app.route('/')
-def home():
-    return render_template("index.html")
+    return jsonify({"recommended_assessments": []}), 200
 
-# Port binding for Render
-if __name__ == "__main__":
+# Run the app
+if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port)
