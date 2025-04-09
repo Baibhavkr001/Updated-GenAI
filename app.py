@@ -8,12 +8,12 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Load the product catalog CSV
+# Load the CSV
 df = pd.read_csv("assessments.csv")
 
-# Preprocess text and compute TF-IDF matrix
+# Vectorize using 'Description' column
 vectorizer = TfidfVectorizer(stop_words='english')
-tfidf_matrix = vectorizer.fit_transform(df['Assessment Description'])
+tfidf_matrix = vectorizer.fit_transform(df['Description'])
 
 @app.route('/', methods=['GET'])
 def home():
@@ -27,23 +27,22 @@ def recommend():
     if not user_input:
         return jsonify({"error": "Missing 'query' in request body"}), 400
 
-    # Vectorize user query
     query_vec = vectorizer.transform([user_input])
-
-    # Compute cosine similarity
     similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
 
-    # Get top 5 recommendations
     top_indices = similarity.argsort()[-5:][::-1]
     recommendations = df.iloc[top_indices]
 
     result = []
-    for i, row in recommendations.iterrows():
+    for _, row in recommendations.iterrows():
         result.append({
-            "assessment_name": row["Assessment Name"],
-            "description": row["Assessment Description"],
+            "assessment_name": row["Title"],
+            "description": row["Description"],
             "duration": row["Duration"],
-            "url": row["Assessment URL"]
+            "adaptive_support": row["Adaptive_Support"],
+            "remote_support": row["Remote_Support"],
+            "test_type": row["Test_Type"],
+            "url": row["URL"]
         })
 
     return jsonify(result)
