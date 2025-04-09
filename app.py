@@ -8,11 +8,15 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Load the CSV
+# Load the CSV file
 df = pd.read_csv('assessments.csv')
 
-# Combine title and description for matching
+# Combine title and description for vectorization
 df['combined_text'] = df['Title'].fillna('') + ' ' + df['Description'].fillna('')
+
+@app.route("/", methods=["GET"])
+def home():
+    return "Assessment Recommender is running!"
 
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -31,18 +35,30 @@ def recommend():
     tfidf_matrix = vectorizer.fit_transform(df['combined_text'])
     job_vec = vectorizer.transform([job_description])
 
-    # Cosine similarity
+    # Cosine similarity to find top 10
     similarity_scores = cosine_similarity(job_vec, tfidf_matrix).flatten()
-    top_indices = similarity_scores.argsort()[::-1][:10]  # top 10
+    top_indices = similarity_scores.argsort()[::-1][:4]
 
     recommended = df.iloc[top_indices][[
-        'Title', 'Description', 'Duration', 'Adaptive_Support', 'Remote_Support', 'URL'
+        'Title', 'Description', 'Duration', 'Adaptive_Support', 'Remote_Support', 'Test_Type', 'URL'
     ]]
 
-    recommendations = recommended.to_dict(orient='records')
+    # Convert to list of dicts for JSON
+    recommendations = []
+    for _, row in recommended.iterrows():
+        recommendations.append({
+            "title": row["Title"],
+            "description": row["Description"],
+            "duration": int(row["Duration"]),
+            "adaptive_support": row["Adaptive_Support"],
+            "remote_support": row["Remote_Support"],
+            "test_type": eval(row["Test_Type"]) if isinstance(row["Test_Type"], str) else [],
+            "url": row["URL"]
+        })
+
     return jsonify({"recommendations": recommendations})
 
-# Required for Render deployment to detect open port
+# Run the app with port binding for Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
