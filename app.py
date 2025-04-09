@@ -1,45 +1,42 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from flask_cors import CORS
+import os
 
 app = Flask(__name__)
+CORS(app)
 
-# Load the data
-df = pd.read_csv("assessments.csv")
+# Load assessments
+df = pd.read_csv('assessments.csv')
 
-# Fill NaN values in 'Title' column
-df['Title'] = df['Title'].fillna('')
-
-# TF-IDF Vectorizer
-tfidf = TfidfVectorizer(stop_words='english')
-tfidf_matrix = tfidf.fit_transform(df['Title'])
-
-# Cosine similarity matrix
-cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
-
-# Mapping from title to index
-indices = pd.Series(df.index, index=df['Title']).drop_duplicates()
-
-@app.route('/')
-def home():
-    return render_template('index.html')
+# Lowercase titles for search
+df['Title_lower'] = df['Title'].str.lower()
 
 @app.route('/recommend', methods=['POST'])
 def recommend():
     data = request.get_json()
-    title = data.get("title")
+    job_desc = data.get('job_description', '').lower()
 
-    if title not in indices:
-        return jsonify({"error": "Assessment not found"}), 404
+    # Find matching assessments
+    matched = df[df['Title_lower'].str.contains(job_desc)]
 
-    idx = indices[title]
-    sim_scores = list(enumerate(cosine_sim[idx]))
-    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[1:6]
-    assessment_indices = [i[0] for i in sim_scores]
+    if matched.empty:
+        return jsonify({'error': 'Assessment not found'}), 404
 
-    recommendations = df.iloc[assessment_indices][['Title', 'Description']].to_dict(orient='records')
-    return jsonify(recommendations)
+    results = []
+    for _, row in matched.iterrows():
+        results.append({
+            'title': row['Title'],
+            'description': row['Description'],
+            'duration': int(row['Duration']),
+            'adaptive_support': row['Adaptive_Support'],
+            'remote_support': row['Remote_Support'],
+            'test_type': eval(row['Test_Type']) if isinstance(row['Test_Type'], str) else [],
+            'url': row['URL']
+        })
+
+    return jsonify({'assessments': results})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+    port = int(os.environ.get("PORT", 5000))  # For Render deployment
+    app.run(host='0.0.0.0', port=port)
