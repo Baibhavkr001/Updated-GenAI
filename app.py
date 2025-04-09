@@ -6,7 +6,7 @@ from flask_cors import CORS
 import os
 
 # Load data
-df = pd.read_csv("genai_assessments.csv")
+df = pd.read_csv("assessments.csv")
 
 # Initialize Flask app
 app = Flask(__name__)
