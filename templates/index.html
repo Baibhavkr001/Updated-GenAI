@@ -28,7 +28,7 @@
 
     <div class="result" id="results">
         <h3>Recommended Assessments:</h3>
-        <div id="loading">Loading...</div>
+        <div id="loading" style="display: none;">Loading...</div>
         <ul id="recommendation_list"></ul>
     </div>
 
@@ -40,18 +40,19 @@
             fetch("/recommend", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ job_description: document.getElementById("job_desc").value })
+                body: JSON.stringify({ query: document.getElementById("job_desc").value })
             })
             .then(response => response.json())
             .then(data => {
                 document.getElementById("loading").style.display = "none";
                 const list = document.getElementById("recommendation_list");
                 list.innerHTML = "";
-                data.forEach(item => {
+
+                data.recommended_assessments.forEach(item => {
                     const li = document.createElement("li");
-                    li.innerHTML = `<strong>${item.Assessment_Name}</strong> (${item.Test_Type}) - ${item.Description} 
-                                    <br>Duration: ${item.Duration} mins | Adaptive: ${item.Adaptive_Support}, Remote: ${item.Remote_Support}
-                                    <br><a href="${item.URL}" target="_blank">${item.URL}</a>`;
+                    li.innerHTML = `<strong>${item.test_type.join(", ")}</strong> - ${item.description}
+                                    <br>Duration: ${item.duration} mins | Adaptive: ${item.adaptive_support}, Remote: ${item.remote_support}
+                                    <br><a href="${item.url}" target="_blank">${item.url}</a>`;
                     list.appendChild(li);
                 });
             });
