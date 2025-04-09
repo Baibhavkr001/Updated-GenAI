@@ -3,15 +3,16 @@ from flask_cors import CORS
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Load the assessment CSV once at the start
+# Load CSV file
 df = pd.read_csv('assessments.csv')
 
-# Combine title and description for matching
-df['combined_text'] = df['Title'].fillna('') + ' ' + df['Description'].fillna('')
+# Use the correct column names from your CSV
+df['combined_text'] = df['Assessment_Name'].fillna('') + ' ' + df['Description'].fillna('')
 
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -35,9 +36,13 @@ def recommend():
     top_indices = similarity_scores.argsort()[::-1][:10]  # top 10
 
     recommended = df.iloc[top_indices][[
-        'Title', 'Description', 'Duration', 'Adaptive', 'Remote', 'URL'
+        'Title', 'Description', 'Duration', 'Adaptive_Support', 'Remote_Support', 'URL'
     ]]
 
-    # Convert to dict
     recommendations = recommended.to_dict(orient='records')
     return jsonify({"recommendations": recommendations})
+
+# Run the app (required for Render)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
