@@ -1,60 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <title>GenAI Assessment Recommender</title>
     <style>
         body {
-            font-family: Arial;
-            max-width: 700px;
-            margin: 40px auto;
+            font-family: Arial, sans-serif;
+            padding: 40px;
         }
+
         input, button {
             padding: 10px;
-            width: 100%;
+            width: 500px;
             margin-top: 10px;
-            font-size: 16px;
         }
-        .result {
+
+        button {
+            background-color: #e0e0e0;
+            border: 1px solid #333;
+            cursor: pointer;
+        }
+
+        ul {
             margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h2>GenAI Assessment Recommender</h2>
-    <p>Enter Job Description:</p>
-    <input type="text" id="job_desc" placeholder="e.g. Python Developer">
+    <h1>GenAI Assessment Recommender</h1>
+    <label>Enter Job Description:</label><br>
+    <input type="text" id="jobInput" placeholder="e.g. Python Developer"><br>
     <button onclick="getRecommendations()">Get Recommendations</button>
 
-    <div class="result" id="results">
-        <h3>Recommended Assessments:</h3>
-        <div id="loading" style="display: none;">Loading...</div>
-        <ul id="recommendation_list"></ul>
-    </div>
+    <h3>Recommended Assessments:</h3>
+    <ul id="results"></ul>
 
     <script>
         function getRecommendations() {
-            document.getElementById("loading").style.display = "block";
-            document.getElementById("recommendation_list").innerHTML = "";
+            const title = document.getElementById("jobInput").value;
 
-            fetch("/recommend", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query: document.getElementById("job_desc").value })
+            fetch('/recommend', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title: title })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err });
+                }
+                return response.json();
+            })
             .then(data => {
-                document.getElementById("loading").style.display = "none";
-                const list = document.getElementById("recommendation_list");
-                list.innerHTML = "";
-
-                data.recommended_assessments.forEach(item => {
+                const resultList = document.getElementById("results");
+                resultList.innerHTML = "";
+                data.forEach(item => {
                     const li = document.createElement("li");
-                    li.innerHTML = `<strong>${item.test_type.join(", ")}</strong> - ${item.description}
-                                    <br>Duration: ${item.duration} mins | Adaptive: ${item.adaptive_support}, Remote: ${item.remote_support}
-                                    <br><a href="${item.url}" target="_blank">${item.url}</a>`;
-                    list.appendChild(li);
+                    li.textContent = `${item.Title}: ${item.Description}`;
+                    resultList.appendChild(li);
                 });
+            })
+            .catch(err => {
+                console.error("Error:", err);
+                alert(err.error || "Something went wrong!");
             });
         }
     </script>
