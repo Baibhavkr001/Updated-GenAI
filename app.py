@@ -1,58 +1,43 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
-import os
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
+CORS(app)
 
-# Load the dataset
-df = pd.read_csv("assessments.csv")
-df.fillna("", inplace=True)
+# Load the assessment CSV once at the start
+df = pd.read_csv('assessments.csv')
 
-# Combine all relevant text
-df["combined_text"] = df["Assessment_Name"].astype(str) + " " + \
-                      df["Description"].astype(str) + " " + \
-                      df["Test_Type"].astype(str)
-
-# Vectorize using TF-IDF
-vectorizer = TfidfVectorizer()
-tfidf_matrix = vectorizer.fit_transform(df["combined_text"])
+# Combine title and description for matching
+df['combined_text'] = df['Title'].fillna('') + ' ' + df['Description'].fillna('')
 
 @app.route("/health", methods=["GET"])
 def health_check():
-    return jsonify({"status": "healthy"}), 200
-
-@app.route("/")
-def home():
-    return render_template("index.html")
+    return jsonify({"status": "healthy"})
 
 @app.route("/recommend", methods=["POST"])
 def recommend():
     data = request.get_json()
-    query = data.get("query", "")
+    job_description = data.get("job_description", "")
 
-    if not query:
-        return jsonify({"error": "Query cannot be empty"}), 400
+    if not job_description:
+        return jsonify({"error": "Job description is required"}), 400
 
-    query_vec = vectorizer.transform([query])
-    similarity_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
-    top_indices = similarity_scores.argsort()[-10:][::-1]
+    # TF-IDF vectorization
+    vectorizer = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = vectorizer.fit_transform(df['combined_text'])
+    job_vec = vectorizer.transform([job_description])
 
-    recommended = []
-    for i in top_indices:
-        assessment = df.iloc[i]
-        recommended.append({
-            "url": str(assessment["URL"]),
-            "adaptive_support": str(assessment["Adaptive_Support"]),
-            "description": str(assessment["Description"]),
-            "duration": int(assessment["Duration"]),
-            "remote_support": str(assessment["Remote_Support"]),
-            "test_type": eval(assessment["Test_Type"]) if isinstance(assessment["Test_Type"], str) else []
-        })
+    # Cosine similarity
+    similarity_scores = cosine_similarity(job_vec, tfidf_matrix).flatten()
+    top_indices = similarity_scores.argsort()[::-1][:10]  # top 10
 
-    return jsonify({"recommended_assessments": recommended}), 200
+    recommended = df.iloc[top_indices][[
+        'Title', 'Description', 'Duration', 'Adaptive', 'Remote', 'URL'
+    ]]
 
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    # Convert to dict
+    recommendations = recommended.to_dict(orient='records')
+    return jsonify({"recommendations": recommendations})
