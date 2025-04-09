@@ -1,4 +1,4 @@
-Title,Description,Duration,Adaptive_Support,Remote_Support,Test_Type,URL
+Assessment_Name,Description,Duration,Adaptive_Support,Remote_Support,Test_Type,URL
 Python Basics,"Covers Python syntax, loops, and functions",40,Yes,Yes,"['Coding']",https://example.com/python-basics
 Data Structures,"Covers stacks, queues, trees, and arrays",45,No,Yes,"['Coding', 'Logic']",https://example.com/data-structures
 Machine Learning,"Regression, classification, and model evaluation",60,Yes,Yes,"['AI', 'Math']",https://example.com/machine-learning
