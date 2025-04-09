@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Load the product catalog CSV
-df = pd.read_csv("genai_assessments.csv")
+df = pd.read_csv("assessments.csv")
 
 # Preprocess text and compute TF-IDF matrix
 vectorizer = TfidfVectorizer(stop_words='english')
