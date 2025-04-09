@@ -1,41 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GenAI Assessment Recommender</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 30px; }
-        h1 { color: #222; }
-        input[type="text"] { width: 100%; padding: 10px; font-size: 16px; }
-        button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
-        .recommendation { margin-top: 20px; }
-        .assessment { margin-bottom: 20px; }
-        .score { font-size: 13px; color: gray; }
-    </style>
+  <title>GenAI Assessment Recommender</title>
+  <style>
+    body { font-family: Arial; background: #f3f3f3; padding: 20px; }
+    input, button { padding: 10px; margin-top: 10px; width: 300px; }
+    .recommendation {
+      background: white; margin-top: 10px; padding: 15px; border-left: 5px solid green;
+    }
+  </style>
 </head>
 <body>
-    <h1>GenAI Assessment Recommender</h1>
-    <form method="POST">
-        <label for="job_desc">Enter Job Description:</label><br><br>
-        <input type="text" id="job_desc" name="job_desc" placeholder="e.g. machine learning, python, physics"><br>
-        <button type="submit">Get Recommendations</button>
-    </form>
+  <h2>GenAI Assessment Recommender</h2>
+  <label>Enter Job Description or Keywords:</label><br>
+  <input type="text" id="queryInput" placeholder="e.g. python, machine learning, communication"><br>
+  <button onclick="getRecommendations()">Get Recommendations</button>
 
-    {% if recommendations %}
-    <div class="recommendation">
-        <h2>Recommended Assessments:</h2>
-        <ul>
-        {% for r in recommendations %}
-            <li class="assessment">
-                <strong>{{ r.name }}</strong> ({{ r.test_type }}) - {{ r.description }}<br>
-                Duration: {{ r.duration }} mins |
-                Adaptive: {{ r.adaptive }} |
-                Remote: {{ r.remote }}<br>
-                <a href="{{ r.url }}" target="_blank">{{ r.url }}</a><br>
-                <span class="score">Similarity Score: {{ r.score }}</span>
-            </li>
-        {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
+  <h3>Recommended Assessments:</h3>
+  <div id="results"></div>
+
+  <script>
+    function getRecommendations() {
+      const query = document.getElementById("queryInput").value;
+      document.getElementById("results").innerHTML = "Loading...";
+
+      fetch("/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const resultsDiv = document.getElementById("results");
+        resultsDiv.innerHTML = "";
+
+        if (data.recommended_assessments.length === 0) {
+          resultsDiv.innerHTML = "No matching assessments found.";
+          return;
+        }
+
+        data.recommended_assessments.forEach(item => {
+          const div = document.createElement("div");
+          div.className = "recommendation";
+          div.innerHTML = `
+            <strong><a href="${item.url}" target="_blank">${item.description}</a></strong><br>
+            Duration: ${item.duration} mins | Adaptive: ${item.adaptive_support} | Remote: ${item.remote_support}<br>
+            Test Type: ${item.test_type.join(", ")}
+          `;
+          resultsDiv.appendChild(div);
+        });
+      })
+      .catch(() => {
+        document.getElementById("results").innerHTML = "Something went wrong. Please try again.";
+      });
+    }
+  </script>
 </body>
 </html>
