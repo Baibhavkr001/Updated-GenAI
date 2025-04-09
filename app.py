@@ -1,45 +1,57 @@
-from flask import Flask, request, jsonify
+from flask import Flask, render_template, request, jsonify
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import os
+
 
 app = Flask(__name__)
 
-# Load dataset
+# Load the dataset
 df = pd.read_csv("assessments.csv")
-df.columns = df.columns.str.strip()  # Clean column names
 
-# Vectorize descriptions
-vectorizer = TfidfVectorizer(stop_words='english')
-tfidf_matrix = vectorizer.fit_transform(df['Description'])
+# Fill NaNs with empty string
+df.fillna("", inplace=True)
 
-@app.route('/recommend', methods=['POST'])
+# Combine all relevant text for better recommendations
+df["combined_text"] = df["Assessment_Name"].astype(str) + " " + \
+                      df["Description"].astype(str) + " " + \
+                      df["Test_Type"].astype(str)
+
+# Vectorize using TF-IDF
+vectorizer = TfidfVectorizer()
+tfidf_matrix = vectorizer.fit_transform(df["combined_text"])
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/recommend", methods=["POST"])
 def recommend():
-    content = request.get_json()
-    user_query = content.get("query", "")
+    data = request.get_json()
+    job_desc = data.get("job_description", "")
 
-    if not user_query:
-        return jsonify({"error": "Query is required"}), 400
+    if not job_desc:
+        return jsonify({"error": "Job description cannot be empty"}), 400
 
-    user_vec = vectorizer.transform([user_query])
-    cosine_sim = cosine_similarity(user_vec, tfidf_matrix).flatten()
-    top_indices = cosine_sim.argsort()[::-1][:3]
+    query_vec = vectorizer.transform([job_desc])
+    similarity_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
+    top_indices = similarity_scores.argsort()[-3:][::-1]  # Top 3 recommendations
 
-    results = []
-    for idx in top_indices:
-        results.append({
-            "Assessment Name": df.iloc[idx]["Assessment_Name"],
-            "URL": df.iloc[idx]["URL"],
-            "Duration": df.iloc[idx]["Duration"],
-            "Adaptive Support": df.iloc[idx]["Adaptive_Support"],
-            "Remote Support": df.iloc[idx]["Remote_Support"],
-            "Test Type": df.iloc[idx]["Test_Type"]
-        })
+    recommendations = []
+    for i in top_indices:
+        rec = {
+            "Assessment_Name": str(df.iloc[i]["Assessment_Name"]),
+            "Description": str(df.iloc[i]["Description"]),
+            "Duration": int(df.iloc[i]["Duration"]),
+            "Adaptive_Support": str(df.iloc[i]["Adaptive_Support"]),
+            "Remote_Support": str(df.iloc[i]["Remote_Support"]),
+            "Test_Type": str(df.iloc[i]["Test_Type"]),
+            "URL": str(df.iloc[i]["URL"])
+        }
+        recommendations.append(rec)
 
-    return jsonify(results)
+    return jsonify(recommendations)
 
-# ✅ Render-specific PORT binding
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render sets PORT
-    app.run(debug=True, host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
