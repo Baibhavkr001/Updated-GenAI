@@ -1,53 +1,53 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import os
 
 app = Flask(__name__)
-app.config['TEMPLATES_AUTO_RELOAD'] = True
+CORS(app)
 
-# Load data
-data = pd.read_csv("assessments.csv")
+# Load the product catalog CSV
+df = pd.read_csv("assessments.csv")
 
-# Precompute TF-IDF vectors on descriptions
+# Preprocess text and compute TF-IDF matrix
 vectorizer = TfidfVectorizer(stop_words='english')
-tfidf_matrix = vectorizer.fit_transform(data['Description'])
+tfidf_matrix = vectorizer.fit_transform(df['Assessment Description'])
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+@app.route('/', methods=['GET'])
+def home():
+    return "Welcome to the GenAI Assessment Recommendation API!"
 
-@app.route("/recommend", methods=["POST"])
+@app.route('/recommend', methods=['POST'])
 def recommend():
-    content = request.get_json()
-    query = content.get("query", "")
+    data = request.get_json()
+    user_input = data.get("query", "")
 
-    if not query:
-        return jsonify({"error": "Query is missing"}), 400
+    if not user_input:
+        return jsonify({"error": "Missing 'query' in request body"}), 400
 
-    query_vec = vectorizer.transform([query])
-    similarity_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
-    top_indices = similarity_scores.argsort()[::-1][:5]
+    # Vectorize user query
+    query_vec = vectorizer.transform([user_input])
 
-    recommendations = []
-    for i in top_indices:
-        rec = {
-            "url": data.iloc[i]["URL"],
-            "adaptive_support": data.iloc[i]["Adaptive_Support"],
-            "description": data.iloc[i]["Description"],
-            "duration": int(data.iloc[i]["Duration"]),
-            "remote_support": data.iloc[i]["Remote_Support"],
-            "test_type": eval(data.iloc[i]["Test_Type"])  # convert string to list
-        }
-        recommendations.append(rec)
+    # Compute cosine similarity
+    similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
 
-    return jsonify({"recommended_assessments": recommendations})
+    # Get top 5 recommendations
+    top_indices = similarity.argsort()[-5:][::-1]
+    recommendations = df.iloc[top_indices]
 
-@app.route("/health")
-def health():
-    return jsonify({"status": "healthy"})
+    result = []
+    for i, row in recommendations.iterrows():
+        result.append({
+            "assessment_name": row["Assessment Name"],
+            "description": row["Assessment Description"],
+            "duration": row["Duration"],
+            "url": row["Assessment URL"]
+        })
 
-if __name__ == "__main__":
+    return jsonify(result)
+
+if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True, host='0.0.0.0', port=port)
