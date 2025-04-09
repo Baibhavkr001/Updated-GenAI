@@ -6,7 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 app = Flask(__name__)
 
 # Load the data
-df = pd.read_csv("AssessmentData.csv")
+df = pd.read_csv("Assessments.csv")
 
 # Fill NaN values in 'Title' column
 df['Title'] = df['Title'].fillna('')
