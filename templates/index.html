@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GenAI Assessment Recommender</title>
+    <style>
+        body {
+            font-family: Arial;
+            max-width: 700px;
+            margin: 40px auto;
+        }
+        input, button {
+            padding: 10px;
+            width: 100%;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        .result {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>GenAI Assessment Recommender</h2>
+    <p>Enter Job Description:</p>
+    <input type="text" id="job_desc" placeholder="e.g. Python Developer">
+    <button onclick="getRecommendations()">Get Recommendations</button>
+
+    <div class="result" id="results">
+        <h3>Recommended Assessments:</h3>
+        <div id="loading">Loading...</div>
+        <ul id="recommendation_list"></ul>
+    </div>
+
+    <script>
+        function getRecommendations() {
+            document.getElementById("loading").style.display = "block";
+            document.getElementById("recommendation_list").innerHTML = "";
+
+            fetch("/recommend", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ job_description: document.getElementById("job_desc").value })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("loading").style.display = "none";
+                const list = document.getElementById("recommendation_list");
+                list.innerHTML = "";
+                data.forEach(item => {
+                    const li = document.createElement("li");
+                    li.innerHTML = `<strong>${item.Assessment_Name}</strong> (${item.Test_Type}) - ${item.Description} 
+                                    <br>Duration: ${item.Duration} mins | Adaptive: ${item.Adaptive_Support}, Remote: ${item.Remote_Support}
+                                    <br><a href="${item.URL}" target="_blank">${item.URL}</a>`;
+                    list.appendChild(li);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
