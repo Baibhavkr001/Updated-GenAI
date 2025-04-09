@@ -8,11 +8,11 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Load CSV file
+# Load the CSV
 df = pd.read_csv('assessments.csv')
 
-# Use the correct column names from your CSV
-df['combined_text'] = df['Assessment_Name'].fillna('') + ' ' + df['Description'].fillna('')
+# Combine title and description for matching
+df['combined_text'] = df['Title'].fillna('') + ' ' + df['Description'].fillna('')
 
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -42,7 +42,7 @@ def recommend():
     recommendations = recommended.to_dict(orient='records')
     return jsonify({"recommendations": recommendations})
 
-# Run the app (required for Render)
+# Required for Render deployment to detect open port
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
